@@ -140,6 +140,39 @@ RUN git clone https://github.com/ignitionrobotics/ign-fuel-tools ign-fuel-tools 
     make -j4 && \
     sudo make install
 
+# install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    qt5-qmake \
+    libqt5core5a \
+    libqt5gui5 \
+    libqt5widgets5 \
+    libqt5opengl5-dev \
+    libqt5svg5-dev \
+    libqwt-qt5-dev \
+    libogre-1.12-dev \
+    libboost-all-dev \
+    libtar-dev \
+    libsqlite3-dev \
+    libbullet-dev \
+    libsimbody-dev \
+    libzstd-dev \
+    swig \
+    libzmq3-dev \
+    cppzmq-dev \
+    && apt-get -y autoremove \
+    && apt-get clean autoclean \
+    && rm -rf /var/lib/apt/lists/{apt,dpkg,cache,log} /tmp/* /var/tmp/*
+    
+# This gazebo-transport is required from source
+RUN git clone https://github.com/gazebosim/gz-transport gazebo-transport && \
+    cd gazebo-transport && \
+    git checkout ign-transport8 && \
+    mkdir build && \
+    cd build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j4 && \
+    sudo make install
+
 # create user with id 1001 (jenkins docker workflow default)
 RUN useradd --shell /bin/bash -u 1001 -c "" -m user && usermod -a -G dialout user
 
@@ -153,15 +186,15 @@ RUN echo "%sudo ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 # Some QT-Apps/Gazebo don't not show controls without this
 ENV QT_X11_NO_MITSHM=1
 
-WORKDIR /tmp
+WORKDIR /home/gazebo-classic
+COPY . .
 
-COPY . ./gazebo-clasic
-
-RUN cd gazebo-classic && \
-    mkdir build && \
+RUN mkdir build && \
     cd build && \
     cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
     make -j4 && \
     sudo make install
+    
+
 
 CMD ["sleep", "infinity"]
