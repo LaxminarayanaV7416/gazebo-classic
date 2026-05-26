@@ -259,6 +259,11 @@ void World::Load(sdf::ElementPtr _sdf)
   this->dataPtr->posePub = this->dataPtr->node->Advertise<msgs::PosesStamped>(
     "~/pose/info", 10, 60);
 
+  // custom topic for the purpose of the SADE project
+  this->dataPtr->poseSadePub =
+      this->dataPtr->node->Advertise<msgs::PosesStamped>(
+          "~/pose/local/sade_info", 10);
+
   this->dataPtr->guiPub = this->dataPtr->node->Advertise<msgs::GUI>("~/gui", 5);
   if (this->dataPtr->sdf->HasElement("gui"))
   {
@@ -1048,6 +1053,7 @@ void World::Fini()
 
     this->dataPtr->poseLocalPub.reset();
     this->dataPtr->posePub.reset();
+    this->dataPtr->poseSadePub.reset();
     this->dataPtr->guiPub.reset();
     this->dataPtr->responsePub.reset();
     this->dataPtr->statPub.reset();
@@ -2810,12 +2816,17 @@ void World::ProcessMessages()
       // uncomment the following line:
          this->dataPtr->updateScenePoses ||
         (this->dataPtr->poseLocalPub &&
-         this->dataPtr->poseLocalPub->HasConnections()))
+         this->dataPtr->poseLocalPub->HasConnections()) ||
+        // we only publish this if there are any subscribers else its just created
+        (this->dataPtr->poseSadePub &&
+        this->dataPtr->poseSadePub->HasConnections()))
     {
       msgs::PosesStamped msg;
+      msgs::PosesStamped sadeMsg;
 
       // Time stamp this PosesStamped message
       msgs::Set(msg.mutable_time(), this->SimTime());
+      msgs::Set(sadeMsg.mutable_time(), this->SimTime());
 
       if (!this->dataPtr->publishModelPoses.empty() ||
           !this->dataPtr->publishLightPoses.empty())
@@ -2829,11 +2840,17 @@ void World::ProcessMessages()
             ModelPtr m = modelList.front();
             modelList.pop_front();
             msgs::Pose *poseMsg = msg.add_pose();
+            msgs::Pose *poseSadeMsg = sadeMsg.add_pose();
 
             // Publish the model's relative pose
             poseMsg->set_name(m->GetScopedName());
             poseMsg->set_id(m->GetId());
             msgs::Set(poseMsg, m->RelativePose());
+
+            // publish the model's relative pose
+            poseSadeMsg->set_name(m->GetScopedName());
+            poseSadeMsg->set_id(m->GetId());
+            msgs::Set(poseSadeMsg, m->RelativePose());
 
             // Publish each of the model's child links relative poses
             Link_V links = m->GetLinks();
@@ -2872,6 +2889,13 @@ void World::ProcessMessages()
         // rendering::Scene depends on this timestamp, which is used by
         // rendering sensors to time stamp their data
         this->dataPtr->poseLocalPub->Publish(msg);
+      }
+
+      // publish SADE pose msgs
+      if (this->dataPtr->poseSadePub &&
+      this->dataPtr->poseSadePub->HasConnections())
+      {
+          this->dataPtr->poseSadePub->Publish(sadeMsg);
       }
 
       // When ready to use the direct API for updating scene poses from server,
