@@ -125,6 +125,9 @@ namespace gazebo
       /// \brief Publisher for local pose messages.
       public: transport::PublisherPtr poseLocalPub;
 
+      /// \brief Publisher for local pose messages for SADE.
+      public: transport::PublisherPtr poseSadePub;
+
       /// \brief Subscriber to world control messages.
       public: transport::SubscriberPtr controlSub;
 
